@@ -16,7 +16,7 @@ Imports: xml2 (>= 1.2.0),
          assertthat
 Suggests:
     knitr,
-    RCurl,
+    curl,
     rmarkdown,
     testthat,
     covr

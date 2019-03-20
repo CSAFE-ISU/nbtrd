@@ -1,0 +1,36 @@
+Package: nbtrd
+Type: Package
+Title: API to the National Ballistics and Toolmarks Research Database (NIST)
+Version: 0.0.1
+Date: 2019-03-20
+Authors@R: c(
+    person("Susan", "Vanderplas", email = "srvander@iastate.edu", 
+            role = c("aut", "cre")),                      
+    person("Heike", "Hofmann", role = c("aut"),
+            email = "hofmann@iastate.edu")
+    )
+Maintainer: Susan Vanderplas <srvander@iastate.edu>
+Description: This package provides functionality to interact with the National Ballistics and Toolmarks Research Database (NBTRD) provided by NIST at https://tsapps.nist.gov/NRBTD/.
+Depends: R (>= 3.3)
+Imports: digest (>= 0.6.15),
+         xml2 (>= 1.2.0),
+         rgl (>= 0.99.9),
+         zoo (>= 1.8.1),
+         png (>= 0.1-7),
+         assertthat,
+         grDevices
+Suggests:
+    knitr,
+    rmarkdown,
+    testthat,
+    covr,
+    here,
+    dplyr,
+    magick (>= 2.0)
+License: GPL-3
+LazyData: true
+RoxygenNote: 6.1.1
+URL: https://github.com/csafe-isu/nbrtd
+BugReports: https://github.com/csafe-isu/nbrtd/issues
+Roxygen: list(markdown = TRUE)
+Encoding: UTF-8

@@ -12,21 +12,14 @@ Authors@R: c(
 Maintainer: Susan Vanderplas <srvander@iastate.edu>
 Description: This package provides functionality to interact with the National Ballistics and Toolmarks Research Database (NBTRD) provided by NIST at https://tsapps.nist.gov/NRBTD/.
 Depends: R (>= 3.3)
-Imports: digest (>= 0.6.15),
-         xml2 (>= 1.2.0),
-         rgl (>= 0.99.9),
-         zoo (>= 1.8.1),
-         png (>= 0.1-7),
-         assertthat,
-         grDevices
+Imports: xml2 (>= 1.2.0),
+         assertthat
 Suggests:
     knitr,
+    RCurl,
     rmarkdown,
     testthat,
-    covr,
-    here,
-    dplyr,
-    magick (>= 2.0)
+    covr
 License: GPL-3
 LazyData: true
 RoxygenNote: 6.1.1

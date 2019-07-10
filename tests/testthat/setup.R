@@ -8,5 +8,4 @@ url_unreachable <- function(url) {
   } else {
     return("try-error" %in% class(opt1))
   }
-  
 }

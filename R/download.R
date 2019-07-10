@@ -30,7 +30,7 @@
 #'                    file.path("data"), mirrorFileStructure = T)
 #' NRBTD_download(studyID, file.path("data"), mirrorFileStructure = T)                    
 #'}
-NRBTD_download <- function(study_link, directory, mirrorFileStructure = T, maxFiles = 0, quiet = T) {
+NRBTD_download <- NBTRD_download <- function(study_link, directory, mirrorFileStructure = T, maxFiles = 0, quiet = T) {
   if (!dir.exists(directory)) {
     warning("Directory does not exist. It will be created.")
     dir.create(directory, recursive = T)
@@ -124,7 +124,7 @@ NRBTD_download <- function(study_link, directory, mirrorFileStructure = T, maxFi
 #' \dontrun{
 #' NRBTDsample_download(file.path("data"))                  
 #'}
-NRBTDsample_download <- function(directory, maxFiles = 0, quiet = T) {
+NRBTDsample_download <- NBTRDsample_download <- function(directory, maxFiles = 0, quiet = T) {
   if (!dir.exists(directory)) {
     warning("Directory does not exist. It will be created.")
     dir.create(directory, recursive = T)

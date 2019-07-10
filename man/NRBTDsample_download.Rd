@@ -24,7 +24,7 @@ the \code{\link{NRBTD_download}} function.
 }
 \examples{
 \dontrun{
-NRBTDsample_download(file.path("data"))
+NBTRDsample_download(file.path("data"))
 }
 }
 \seealso{

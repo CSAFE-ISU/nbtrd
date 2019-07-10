@@ -17,7 +17,7 @@ knitr::opts_chunk$set(
 [![Travis build status](https://travis-ci.org/CSAFE-ISU/nbtrd.svg?branch=master)](https://travis-ci.org/CSAFE-ISU/nbtrd)
 [![Coverage status](https://codecov.io/gh/CSAFE-ISU/nbtrd/branch/master/graph/badge.svg)](https://codecov.io/github/CSAFE-ISU/nbtrd?branch=master)
 
-The goal of nbtrd is to ...
+The goal of nbtrd is to provide an automated interface to the NBTRD for essential tasks, such as downloading sample x3p data (for `x3ptools` and `bulletxtrctr`) or uploading new scans of x3p data to NBTRD.
 
 ## Installation
 
@@ -27,26 +27,6 @@ You can install the released version of nbtrd from [CRAN](https://CRAN.R-project
 install.packages("nbtrd")
 ```
 
-## Example
+## Sample Scripts
 
-This is a basic example which shows you how to solve a common problem:
-
-```{r example}
-## basic example code
-```
-
-What is special about using `README.Rmd` instead of just `README.md`? You can include R chunks like so:
-
-```{r cars}
-summary(cars)
-```
-
-You'll still need to render `README.Rmd` regularly, to keep `README.md` up-to-date.
-
-You can also embed plots, for example:
-
-```{r pressure, echo = FALSE}
-plot(pressure)
-```
-
-In that case, don't forget to commit and push the resulting figure files, so they display on GitHub!
+`inst/UploadSet.R` contains a script that (if filled in correctly) will upload your data set of x3p files to NBTRD. 

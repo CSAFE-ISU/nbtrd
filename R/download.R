@@ -26,9 +26,9 @@
 #' url <- "https://tsapps.nist.gov/NRBTD/Studies/Studies/Details/"
 #' studyID <- "c09aaa86-5d60-4acb-9031-46dad2c0ad32"
 #' fullurl <- paste0(url, studyID)
-#' NRBTD_download(fullurl,
+#' NBTRD_download(fullurl,
 #'                    file.path("data"), mirrorFileStructure = T)
-#' NRBTD_download(studyID, file.path("data"), mirrorFileStructure = T)
+#' NBTRD_download(studyID, file.path("data"), mirrorFileStructure = T)
 #' }
 NRBTD_download <- NBTRD_download <- function(study_link, directory, mirrorFileStructure = T, maxFiles = 0, quiet = T) {
   if (!dir.exists(directory)) {
@@ -126,7 +126,7 @@ NRBTD_download <- NBTRD_download <- function(study_link, directory, mirrorFileSt
 #' @seealso NRBTD_download
 #' @examples
 #' \dontrun{
-#' NRBTDsample_download(file.path("data"))
+#' NBTRDsample_download(file.path("data"))
 #' }
 NRBTDsample_download <- NBTRDsample_download <- function(directory, maxFiles = 0, quiet = T) {
   if (!dir.exists(directory)) {

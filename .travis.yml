@@ -3,3 +3,14 @@
 language: R
 sudo: false
 cache: packages
+services:
+- docker
+env:
+  matrix:
+  - NOT_CRAN=true
+before_install:
+- svn checkout https://github.com/SeleniumHQ/selenium/trunk/common/src/web
+- docker run -d -p 3000:8080 --name http-server -v $(pwd)/web:/public redsadic/docker-http-server&
+- docker run -d -p 127.0.0.1:4444:4445 -v /dev/shm:/dev/shm --link http-server selenium/firefox
+after_success:
+- Rscript -e 'covr::codecov()'

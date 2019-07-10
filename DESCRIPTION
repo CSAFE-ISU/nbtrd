@@ -11,12 +11,21 @@ Authors@R: c(
     )
 Maintainer: Susan Vanderplas <srvander@iastate.edu>
 Description: This package provides functionality to interact with the National Ballistics and Toolmarks Research Database (NBTRD) provided by NIST at https://tsapps.nist.gov/NRBTD/.
-Depends: R (>= 3.3)
-Imports: xml2 (>= 1.2.0),
-         assertthat
+Depends: R (>= 3.5)
+Imports: 
+    xml2 (>= 1.2.0),
+    x3ptools,
+    readr,
+    stringr,
+    purrr,
+    assertthat,
+    RSelenium,
+    tibble,
+    magrittr
 Suggests:
     knitr,
     curl,
+    httr,
     rmarkdown,
     testthat,
     covr

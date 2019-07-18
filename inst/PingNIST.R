@@ -9,7 +9,7 @@ library(XML)
 if (!exists("nbtrd_user")) nbtrd_user <- "srvander"
 if (!exists("nbtrd_pwd")) nbtrd_pwd <- keyringr::decrypt_gk_pw("db csafe user srvander")
 
-remDr <- setup_NBTRD(nbtrd_user, nbtrd_pwd)
+remDr <- setup_NBTRD()
 
 if (str_detect(remDr$getCurrentUrl()[[1]], "nist.gov")) {
   login <- nbtrd_login(remDr, nbtrd_user, nbtrd_pwd)

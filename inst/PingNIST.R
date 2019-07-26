@@ -22,3 +22,4 @@ if (str_detect(remDr$getCurrentUrl()[[1]], "nist.gov")) {
 }
 
 remDr$close()
+

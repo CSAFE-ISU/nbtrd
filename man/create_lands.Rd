@@ -4,15 +4,17 @@
 \alias{create_lands}
 \title{Function to upload land scans to bullet objects}
 \usage{
-create_lands(rd, land_df)
+create_lands(rd, land_df, copy = F)
 }
 \arguments{
 \item{rd}{a remote driver}
 
 \item{land_df}{a single-row data frame with required information (bullet, bullet_link,
-new_filename, creator, nist_meas, measurand, lighting_dir, lighting_dir_other,
+creator, nist_meas, measurand, lighting_dir, lighting_dir_other,
 meas_type, meas_type_other, instrument_brand, instrument_model, roi, land,
 lateral_res, vertical_res, obj, aperture, comment, filename)}
+
+\item{copy}{copy scans to local path (usually used to rename files for upload). Set to F to turn off.}
 }
 \description{
 Function to upload land scans to bullet objects

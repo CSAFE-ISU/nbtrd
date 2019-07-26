@@ -87,12 +87,12 @@ fill_num_field <- function(rd, css_sel, value, clear = F) {
 #' @param value value to fill in
 #' @import RSelenium
 fill_dropdown_field <- function(rd, css_sel, value) {
-  value_options <- purrr::map_chr(
+  value_options <- purrr::map(
     rd$
       findElement(using = "css selector", value = css_sel)$
       findChildElements(using = "xpath", value = "option"),
     ~.$getElementText()
-  )
+  ) %>% unlist()
 
   if (sum(stringr::str_detect(value_options, paste0("^", value))) == 0) {
     warning("specified value not found at beginning of any of the dropdown options")
@@ -291,6 +291,15 @@ find_text <- function(rd, css_sel) {
 #' @import RSelenium
 create_firearms <- function(rd, df, seturl = rd$getCurrentUrl()) {
   stopifnot("name" %in% names(df))
+
+  rd$navigate(seturl)
+
+  tmp <- check_link_exists(rd, sprintf("//a[text()=\"%s\"]", df$name), "Barrel")
+
+  if (!is.na(tmp)) {
+    return(tmp)
+  }
+  
   stopifnot("model" %in% names(df))
   stopifnot("comments" %in% names(df))
   stopifnot("brand" %in% names(df))
@@ -306,20 +315,9 @@ create_firearms <- function(rd, df, seturl = rd$getCurrentUrl()) {
   stopifnot("firing_pin_other" %in% names(df))
   stopifnot("n_lands" %in% names(df))
   stopifnot("twist_direction" %in% names(df))
-
-
+  
   stopifnot(df$brand %in% dropdown_options$barrel_brand_options)
   stopifnot(df$caliber %in% dropdown_options$caliber_options)
-
-
-  rd$navigate(seturl)
-
-  tmp <- check_link_exists(rd, sprintf("//a[text()=\"%s\"]", df$name), "Barrel")
-
-  if (!is.na(tmp)) {
-    return(tmp)
-  }
-
   try({
     open_modal(rd, ".modal-open", "#btnAddNewFirearm")
 
@@ -443,12 +441,13 @@ create_bullets <- function(rd, df) {
 #'
 #' @param rd a remote driver
 #' @param land_df a single-row data frame with required information (bullet, bullet_link,
-#'          new_filename, creator, nist_meas, measurand, lighting_dir, lighting_dir_other,
+#'          creator, nist_meas, measurand, lighting_dir, lighting_dir_other,
 #'          meas_type, meas_type_other, instrument_brand, instrument_model, roi, land,
 #'          lateral_res, vertical_res, obj, aperture, comment, filename)
+#' @param copy copy scans to local path (usually used to rename files for upload). Set to F to turn off.
 #' @export
 #' @import RSelenium
-create_lands <- function(rd, land_df) {
+create_lands <- function(rd, land_df, copy = F) {
   bullet_sel <- paste(
     "div.row:nth-child(9) > div:nth-child(1) > div:nth-child(1) > ",
     "div:nth-child(2) > div:nth-child(2) > div:nth-child(1) > ",
@@ -464,7 +463,11 @@ create_lands <- function(rd, land_df) {
 
 
   # Check to see if land already exists
-  tmp <- check_link_exists(rd, sprintf("//a[text()=\"%s\"]", basename(land_df$new_filename)), "Land")
+  if (copy) {
+    tmp <- check_link_exists(rd, sprintf("//a[text()=\"%s\"]", basename(land_df$new_filename)), "Land")
+  } else {
+    tmp <- check_link_exists(rd, sprintf("//a[text()=\"%s\"]", basename(land_df$filename)), "Land")
+  }
 
   if (!is.na(tmp)) {
     return(tmp)
@@ -502,19 +505,27 @@ create_lands <- function(rd, land_df) {
 
     fill_text_field(rd, "#Comment", value = land_df$comment)
 
-    file.copy(land_df$filename, file.path(getwd(), basename(land_df$new_filename)), overwrite = T)
+    if (copy) {
+      file.copy(land_df$filename, file.path(getwd(), basename(land_df$new_filename)), overwrite = T)
+    } else {
+      land_df$new_filename <- land_df$filename
+    }
 
     # Ensure file gets uploaded
     loop_test(
       function() rd$findElement("css selector", "#ImageFile")$getElementAttribute("value") %>% unlist(),
       function(x) nchar(x) == 0,
-      function() rd$findElement("css selector", "#ImageFile")$sendKeysToElement(list(file.path(getwd(), basename(land_df$new_filename))))
+      function() rd$findElement("css selector", "#ImageFile")$
+        sendKeysToElement(list(file.path(getwd(), 
+                                         basename(land_df$new_filename))))
     )
 
     submit_modal(rd, ".modal-open", "input.btn:nth-child(2)")
 
     # Remove renamed file once it's uploaded
-    file.remove(file.path(getwd(), basename(land_df$new_filename)))
+    if (copy) {
+      file.remove(file.path(getwd(), basename(land_df$new_filename)))
+    }
   })
 
 

@@ -16,7 +16,13 @@ remDr <- setup_NBTRD()
 if (str_detect(remDr$getCurrentUrl()[[1]], "nist.gov")) {
   login <- nbtrd_login(remDr, nbtrd_user, nbtrd_pwd)
   if (login) {
-    res <- httr::GET("https://hc-ping.com/3d34aa94-1333-48b4-a935-d65e30efc27c")
+    res <- list(status_code = 0)
+    i <- 0
+    while (res$status_code != 200 & i < 5) {
+      res <- try(httr::GET("https://hc-ping.com/3d34aa94-1333-48b4-a935-d65e30efc27c"))
+      if (!"status-code" %in% names(res)) res$status_code <- 0
+      i <- i + 1
+    }
   if (!res$status_code == 200) warning("hc-ping not updated")
   } else {
     warning("login failed")

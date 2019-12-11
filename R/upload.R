@@ -516,7 +516,7 @@ create_lands <- function(rd, land_df, copy = F) {
       function() rd$findElement("css selector", "#ImageFile")$getElementAttribute("value") %>% unlist(),
       function(x) nchar(x) == 0,
       function() rd$findElement("css selector", "#ImageFile")$
-        sendKeysToElement(list(file.path(getwd(), 
+        sendKeysToElement(list(file.path(dirname(land_df$new_filename), 
                                          basename(land_df$new_filename))))
     )
 

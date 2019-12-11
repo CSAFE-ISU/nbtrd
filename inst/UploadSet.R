@@ -1,4 +1,5 @@
 # ---- Steps ----
+# 0. Start a docker container with the datapath on the host machine shared with the container
 # 1. Assemble data: Ideally, structured as 
 #    Barrel_X/Bullet_Y/Study-Barrel_X-Bullet_Y-Land*.x3p
 # 2. Create metadata csv containing columns barrel, bullet, land, and path, 
@@ -7,12 +8,25 @@
 #    https://tsapps.nist.gov/NRBTD/Studies/Studies/Details/<study_id>
 # 4. Run this script
 
+
+
 datapath <- "/media/Raven/LAPD-NIST"
+
+# Set up metadata file
 metadata <- tibble(path = list.files(datapath, "*.x3p", full.names = T, recursive = T)) %>%
   tidyr::extract(path, into = c("barrel", "bullet", "land"), "(FAU\\d{3})-(B[ABCD])-(L[1-6])", remove = F)
 write_csv(metadata, file.path(datapath, "meta.csv"))
 
+
+docker_port <- 4444L # Docker port is needed to tell selenium where to look
+
 # ---- Data parameters ----
+# These change with every set
+
+# Inputting this stuff isn't automated because it's only done once per set and 
+# it didn't seem worth it. But the information is needed to pull links out, and 
+# I tried to structure this so that you had to collect all of the information 
+# first before running the script.
 
 setInfo <- list(
   name = "LAPD",
@@ -80,13 +94,23 @@ scanInfo <- tibble(
 upload_file_list <- list.files(setInfo$data_path, pattern = "*.x3p", 
                                full.names = T, recursive = T)
 
+# ---- Set up docker image and start it up ----
+# Parts of the docker command
+selenium_string <- sprintf("-p %d:4444", docker_port) # map chosen host port to port 4444 on docker image
+vnc_string <- "-p 5901:5900" # This allows you to connect to localhost:5901 using vnc remote desktop to see what the browser is doing
+selenium_docker_img <- "selenium/standalone-firefox-debug:2.53.1"
+file_system_mapping <- paste0("-v ", datapath, ":", datapath) # map datapath on host to datapath in docker
+docker_img <- system(paste("docker run -d -P", selenium_string, vnc_string, file_system_mapping, selenium_docker_img)) # run docker image start
+rm(selenium_string, vnc_string, selenium_docker_img, file_system_mapping)
+
 # ---- Actual Execution ----
 
-remDr <- setup_NBTRD(strict = T)
+remDr <- setup_NBTRD(selenium_port = docker_port, strict = T)
 login <- nbtrd_login(remDr, user = "srvander", 
                      password = keyringr::decrypt_gk_pw("db csafe user srvander"))
 
 # Find set link using set name
+# I'm pretending $ is a pipe here because otherwise it's hard to read.
 set_link <- remDr$
   findElement(using = "link text", value = setInfo$name)$
   getElementAttribute("href")[[1]]
@@ -95,9 +119,11 @@ remDr$navigate(set_link)
 
 # ---- Create barrels ----
 
+# Get 
 firearms <- read_csv(setInfo$meta_path) %>%
   magrittr::extract2("barrel") %>%
-  unique() 
+  unique() %>%
+  na.omit()
 
 # Partially fill in function arguments with remoteDriver and seturl - easier to map
 create_study_barrels <- partial(create_firearms, rd = remDr, seturl = set_link)
@@ -108,19 +134,20 @@ firearms_info <- tibble(
   name = as.character(firearms),
   df = list(barrelInfo)
 ) %>%
-  unnest()
+  unnest(df)
+  
 
 # JS Script to change barrel list to full length
 barrel_length_script_js <- "
   $('.form-control option')[0].value = arguments[0]; 
   $('.form-control').trigger('change')
-  return $('#tableFirearms tbody tr').length;
-"
-
+  return $('#tableFirearms tbody tr').length;"
+# Execute the script
 nrows <- remDr$executeScript(barrel_length_script_js, 
                              list(nrow(firearms_info))) %>% 
   unlist() %>% as.numeric()
 
+# Get all the links on the page
 page_of_links <- remDr$getPageSource() %>%
   unlist() %>%
   read_html()
@@ -142,10 +169,12 @@ if (nrows == 0) {
     unnest()
 }
 
+# Get the whole page of links to firearms
 page_of_links <- remDr$getPageSource() %>%
   unlist() %>%
   read_html()
 
+# Create a tbl of links w/ relevant info
 firearms_links <- tibble(
   firearm_name = page_of_links %>%
     rvest::html_nodes("#tableFirearms tbody tr td:first-of-type a") %>%
@@ -162,13 +191,15 @@ firearms_links <- tibble(
                   fixed("https://tsapps.nist.gov/NRBTD/Studies/Firearm/Details/"))
 ) %>%
   unique() %>%
-  filter(firearm_name != "Bullet / CC")
+  filter(firearm_name != "Bullet / CC") # Get rid of extra links and crud
 
 remDr$navigate(set_link)
 
 # ---- Create bullets ----
+# Create a partially filled in function so we don't have to have rd as an argument in map
 create_study_bullets <- safely(partial(create_bullets, rd = remDr))
 
+# Initial bullet creation - get all metadata collected to be filled in to the form
 bullet_info <- read_csv(setInfo$meta_path) %>%
   left_join(select(firearms_links, barrel = firearm_name, id, details_url)) %>%
   merge(ammoInfo) %>%
@@ -176,34 +207,84 @@ bullet_info <- read_csv(setInfo$meta_path) %>%
   select(-land, -path) %>%
   unique() %>%
   mutate(idx = 1:n()) %>%
-  nest(-idx, .key = "bullet_only_info") %>%
-  mutate(bullet_link_res = purrr::map(bullet_only_info, create_study_bullets)) %>%
-  mutate(bullet_errs = purrr::map(bullet_link_res, "error"),
-         bullet_link = purrr::map_chr(bullet_link_res, "result")) %>%
-  unnest(-bullet_link_res)
+  # Get rid of problem entries
+  filter(!is.na(barrel), !is.na(bullet), !is.na(details_url)) 
+# Actually create the bullets
+bullet_info <- bullet_info %>%
+  nest(bullet_only_info = -idx) %>%
+  mutate(bullet_link_res = purrr::map(bullet_only_info, create_study_bullets)) 
+
+# This function handles safely() type output, which is a list
+# It first checks to see if entries are NULL and replaces them with NA
+# If they are non-null, they are converted to character.
+# Then it unlists them into a character vector
+# purrr::map_chr doesn't handle NULL values that well, hence the workaround
+modify_to_NA <- function(x, depth = 1) {
+  purrr::map_chr(x, ~ifelse(is.null(.), NA, as.character(.)))
+}
+
+# Undo the results of safely()
+bullet_info <- bullet_info %>%
+  mutate(bullet_errs = purrr::map(bullet_link_res, "error") %>% modify_to_NA(),
+         bullet_link = purrr::map(bullet_link_res, "result") %>% modify_to_NA()) 
+
+# Errors - fix manually  or figure out why it failed.
+filter(bullet_info, is.na(bullet_link))  %>%
+  mutate(bullet_link_res = purrr::map(bullet_only_info, create_study_bullets)) 
+
+# This function retries a few times to ensure the issues aren't because of a 
+# flaky selenium connection or internet issue
+modify_if_NA <- function(link, info) {
+  times <- 5
+  while (times > 0 & is.na(link)) {
+    link <- create_study_bullets(info)$result %>% modify_to_NA(depth = 1)
+    times <- times - 1
+  }
+
+  link
+}
+
+bullet_info$bullet_link <- modify2(bullet_info$bullet_link, 
+                                   bullet_info$bullet_only_info, 
+                                   modify_if_NA)
+  
 
 # ---- Create lands ----
-create_study_lands <- partial(create_lands, remDr = remDr)
-
 indiv_land_info <- upload_file_list %>%
   map_df(x3p_land_info) %>%
   tidyr::extract(filename, into = c("barrel", "bullet", "land"), 
                  regex = setInfo$file_regex, remove = F) %>%
   mutate(fileid = paste(barrel, bullet, land, sep = "-")) %>%
-  left_join(select(bullet_info, bullet, barrel, bullet_link)) %>%
+  left_join(select(unnest(bullet_info, "bullet_only_info"), bullet, barrel, bullet_link)) %>%
   merge(scanInfo) %>%
   unique() %>%
   mutate(comment = paste(comment, othercomment, sep = "\n"),
-         new_filename = sprintf("%s/%s/%s.x3p", datapath, rename, fileid)) %>%
-  mutate(idx = 1:n()) %>%
-  nest(-idx, .key = "land_df") %>%
-  mutate(land_link = purrr::map_chr(land_df, create_study_lands)) %>%
+         new_filename = filename
+         # new_filename = file.path(getwd(), basename(filename))
+         ) %>%
+  mutate(idx = 1:n()) 
+
+# the last bit took so long remDr is probably not still functional, so refresh it
+remDr <- setup_NBTRD(selenium_port = docker_port, strict = T)
+login <- nbtrd_login(remDr, user = "srvander", 
+                     password = keyringr::decrypt_gk_pw("db csafe user srvander"))
+remDr$navigate(set_link)
+
+# Create a partially filled in function so we don't have to have remDr as an argument in map
+create_study_lands <- partial(create_lands, rd = remDr, copy = T)
+
+# I'm too chicken to overwrite indiv_land_info because it took so long to generate...
+indiv_land_info2 <- indiv_land_info %>%
+  nest(land_df = -idx) %>%
+  mutate(land_link = purrr::map(land_df, create_study_lands)) %>%
   unnest()
 
 
 
 # ---- Clean Up ----
 remDr$close()
+
+system(paste("docker stop", docker_img))
 
 save(firearm_info, bullet_info, indiv_land_info, 
      file = paste0(setInfo$name, "_Upload.Rdata"))

@@ -9,7 +9,6 @@
 # 4. Run this script
 
 
-
 datapath <- "/media/Raven/LAPD-NIST"
 
 # Set up metadata file
@@ -93,6 +92,20 @@ scanInfo <- tibble(
 
 upload_file_list <- list.files(setInfo$data_path, pattern = "*.x3p", 
                                full.names = T, recursive = T)
+
+# ---- Set up environment - packages, etc ----
+library(nbtrd)
+library(tidyverse)
+# This is to determine whether the script is running in RStudio - if it isn't, 
+# the land uploads can be parallelized
+if (Sys.getenv("RSTUDIO") != "1") {
+  library(furrr) # if running in a terminal and not rstudio
+  plan(multicore)
+  terminal <- T
+} else {
+  terminal <- F
+}
+
 
 # ---- Set up docker image and start it up ----
 # Parts of the docker command
@@ -264,21 +277,58 @@ indiv_land_info <- upload_file_list %>%
          ) %>%
   mutate(idx = 1:n()) 
 
-# the last bit took so long remDr is probably not still functional, so refresh it
-remDr <- setup_NBTRD(selenium_port = docker_port, strict = T)
-login <- nbtrd_login(remDr, user = "srvander", 
-                     password = keyringr::decrypt_gk_pw("db csafe user srvander"))
-remDr$navigate(set_link)
+save(indiv_land_info, firearms_info, firearms_links, ammoInfo, barrelInfo, bullet_info, metadata, scanInfo, setInfo, datapath, set_link, upload_file_list, 
+     file = "LAPD_Land_Info.Rdata")
 
-# Create a partially filled in function so we don't have to have remDr as an argument in map
-create_study_lands <- partial(create_lands, rd = remDr, copy = T)
+# If this is running in the terminal, we can use furrr and split it into 20 processes; 
+# otherwise, use purrr.
+# I wish there was a more streamlined way to do this... but oh well. 
+if (terminal) {
+  # Try this a different way - split into 20 processes, separate login for each process
+  indiv_land_info_split <- indiv_land_info %>%
+    mutate(barrel_group = as.numeric(factor(barrel)) %% 20) %>%
+    nest(land_df = c(-idx, -barrel_group)) %>%
+    split(., .$barrel_group)
+  
+  upload_df <- function(df, docker_port = docker_port) {
+    remDr <- setup_NBTRD(selenium_port = docker_port, strict = T)
+    login <- nbtrd_login(remDr, user = "srvander", 
+                         password = keyringr::decrypt_gk_pw("db csafe user srvander"))
+    remDr$navigate(set_link)
+    create_study_lands <- partial(safely(create_lands), rd = remDr, copy = T)
+    
+    df %>% mutate(land_link = purrr::map(land_df, create_study_lands)) %>%
+      unnest_wider(land_link)
+  }
+  
+  indiv_land_info2 <- indiv_land_info_split %>% 
+    furrr::future_map(upload_df, docker_port = docker_port) %>%
+    bind_rows()
+} else {
+  # the last bit took so long remDr is probably not still functional, so refresh it
+  remDr <- setup_NBTRD(selenium_port = docker_port, strict = T)
+  login <- nbtrd_login(remDr, user = "srvander",
+                       password = keyringr::decrypt_gk_pw("db csafe user srvander"))
+  remDr$navigate(set_link)
 
-# I'm too chicken to overwrite indiv_land_info because it took so long to generate...
-indiv_land_info2 <- indiv_land_info %>%
-  nest(land_df = -idx) %>%
-  mutate(land_link = purrr::map(land_df, create_study_lands)) %>%
-  unnest()
+  # Create a partially filled in function so we don't have to have remDr as an argument in map
+  create_study_lands <- partial(safely(create_lands), rd = remDr, copy = T)
 
+  # I'm too chicken to overwrite indiv_land_info because it took so long to generate...
+  indiv_land_info2 <- indiv_land_info %>%
+    nest(land_df = -idx) %>%
+    mutate(land_link = purrr::map(land_df, create_study_lands)) %>%
+    unnest_wider(land_link)
+}
+
+indiv_land_info2 <- indiv_land_info2 %>%
+  rename(land_link = result) %>%
+  unnest(land_df)
+
+# The files that fail will have copies that haven't been deleted from the copy directory
+# We can (in theory) actually use that to re-upload the failed versions
+# Often, things fail because the modal doesn't launch quickly enough; it's a server-response issue
+# and it's quicker to not add a wait period between every command, because most of the time it works.
 
 
 # ---- Clean Up ----

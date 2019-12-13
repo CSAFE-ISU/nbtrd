@@ -4,9 +4,11 @@
 \alias{setup_NBTRD}
 \title{Set up connection to NBTRD}
 \usage{
-setup_NBTRD(strict = T)
+setup_NBTRD(selenium_port = 4445L, strict = T)
 }
 \arguments{
+\item{selenium_port}{integer port number of docker container}
+
 \item{strict}{error if RSelenium connection does not succeed?}
 }
 \value{
